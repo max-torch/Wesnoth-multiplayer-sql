@@ -84,7 +84,8 @@ def generate_figures(filtered_df):
             .update_layout(
                 margin=dict(l=5, r=5, t=0, b=0),
                 showlegend=False,
-                height=250
+                height=250,
+                paper_bgcolor='rgba(0,0,0,0)',
             )
             .update_traces(marker=dict(colors=view.color))
         )
@@ -98,6 +99,7 @@ def generate_figures(filtered_df):
         labels={'TIMEDIFF_MINUTES':'duration(minutes)'},
         histnorm='percent'
     )
+    fig.update_layout(paper_bgcolor='rgba(0,0,0,0)')
     figures.append(fig)
     return figures
 
