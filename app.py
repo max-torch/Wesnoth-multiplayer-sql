@@ -83,7 +83,8 @@ def generate_figures(filtered_df):
             go.Figure(data=[go.Pie(labels=view.index, values=view[field_name], hole=.8, title=field_name)])
             .update_layout(
                 margin=dict(l=5, r=5, t=0, b=0),
-                showlegend=False
+                showlegend=False,
+                height=250
             )
             .update_traces(marker=dict(colors=view.color))
         )
@@ -179,7 +180,7 @@ def prepare_layout():
             dcc.Graph(id='graph4'),
             dcc.Graph(id='graph5'),
         ], style={'columnCount': 6, 'clear': 'both'}),
-        html.Em('Tip: Note the additional context menu that appears at the top right when you hover over the figure. You can click and drag to zoom in on the figure. Reset Axes in the context menu returns you to the original zoom level.'),
+        html.Em('Tip: Note the additional context menu that appears at the top right upon mouseover. You can click and drag to zoom in on the figure. Reset Axes in the context menu returns you to the original zoom level.'),
         html.Div(dcc.Graph(id='graph6'))
     ], style={'backgroundColor': '#f3ead8'})
     return layout
