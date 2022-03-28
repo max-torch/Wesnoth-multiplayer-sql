@@ -17,59 +17,61 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Connect to MariaDB Platform
-with open('credentials.json') as file:
-    credentials = json.load(file)
+def query_database():
+    # Connect to MariaDB Platform
+    with open('credentials.json') as file:
+        credentials = json.load(file)
 
-try:
-    conn = mariadb.connect(
-        user=credentials['user'],
-        password=credentials['password'],
-        host=credentials['host'],
-        port=credentials['port'],
-        database=credentials['database']
+    try:
+        conn = mariadb.connect(
+            user=credentials['user'],
+            password=credentials['password'],
+            host=credentials['host'],
+            port=credentials['port'],
+            database=credentials['database']
+        )
+    except mariadb.Error as e:
+        logger.error(f"Error connecting to MariaDB Platform: {e}")
+        sys.exit(1)
+
+    # Get Cursor
+    cur = conn.cursor()
+
+    try:
+        cur.execute(
+            """
+            SELECT 
+                INSTANCE_VERSION,
+                OOS,
+                RELOAD,
+                OBSERVERS,
+                PASSWORD,
+                PUBLIC,
+                START_TIME,
+                END_TIME,
+                TIMEDIFF(END_TIME, START_TIME)
+            FROM tmp_game_info
+            """
+        )
+    except mariadb.Error as e:
+        logger.error(f"Error: {e}")
+
+    df = (
+        pd.DataFrame(cur)
+        .applymap(lambda x: x[0] if type(x) is bytes else x)
     )
-except mariadb.Error as e:
-    logger.error(f"Error connecting to MariaDB Platform: {e}")
-    sys.exit(1)
+    df.columns = [field[0] for field in cur.description]
+    df['TIMEDIFF_MINUTES'] = df["TIMEDIFF(END_TIME, START_TIME)"].apply(lambda x: x.total_seconds()/60)
+    df['log_TIMEDIFF_MINUTES'] = df['TIMEDIFF_MINUTES'].apply(lambda x: math.log(x))
 
-# Get Cursor
-cur = conn.cursor()
+    try:
+        cur.execute("SELECT MIN(START_TIME), MAX(START_TIME) FROM tmp_game_info;")
+    except mariadb.Error as e:
+        logger.error(f"Error: {e}")
+    min_date, max_date = cur.fetchone()
 
-try:
-    cur.execute(
-        """
-        SELECT 
-            INSTANCE_VERSION,
-            OOS,
-            RELOAD,
-            OBSERVERS,
-            PASSWORD,
-            PUBLIC,
-            START_TIME,
-            END_TIME,
-            TIMEDIFF(END_TIME, START_TIME)
-        FROM tmp_game_info
-        """
-    )
-except mariadb.Error as e:
-    logger.error(f"Error: {e}")
-
-df = (
-    pd.DataFrame(cur)
-    .applymap(lambda x: x[0] if type(x) is bytes else x)
-)
-df.columns = [field[0] for field in cur.description]
-df['TIMEDIFF_MINUTES'] = df["TIMEDIFF(END_TIME, START_TIME)"].apply(lambda x: x.total_seconds()/60)
-df['log_TIMEDIFF_MINUTES'] = df['TIMEDIFF_MINUTES'].apply(lambda x: math.log(x))
-
-try:
-    cur.execute("SELECT MIN(START_TIME), MAX(START_TIME) FROM tmp_game_info;")
-except mariadb.Error as e:
-    logger.error(f"Error: {e}")
-min_date, max_date = cur.fetchone()
-
-conn.close()
+    conn.close()
+    return df, min_date, max_date
 
 def generate_figures(filtered_df):
     exclude_list = ['TIMEDIFF(END_TIME, START_TIME)', 'START_TIME', 'END_TIME', 'TIMEDIFF_MINUTES', 'log_TIMEDIFF_MINUTES']
@@ -104,6 +106,7 @@ def generate_figures(filtered_df):
     return figures
 
 def prepare_layout():
+    df, min_date, max_date = query_database()
     layout = html.Div(children=[
         html.H1(children='Wesnoth Multiplayer Server Dashboard', style={
             'text-align': 'center', 
@@ -218,6 +221,7 @@ def update_figures(start_date, end_date, checklist0, checklist1, checklist2, che
     for each in [checklist0, checklist1, checklist2, checklist3, checklist4, checklist5]:
         if each is None:
             return []
+    df, min_date, max_date = query_database()
     filtered_df = df[df['START_TIME'].between(start_date, end_date)]
     filtered_df = filtered_df[filtered_df['INSTANCE_VERSION'].isin(checklist0)]
     filtered_df = filtered_df[filtered_df['OOS'].isin(checklist1)]
