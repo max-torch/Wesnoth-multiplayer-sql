@@ -98,7 +98,6 @@ def generate_figures(filtered_df):
         labels={'TIMEDIFF_MINUTES':'duration(minutes)'},
         histnorm='percent'
     )
-    fig.update_layout(margin=dict(t=25))
     figures.append(fig)
     return figures
 
